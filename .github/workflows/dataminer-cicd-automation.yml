@@ -29,60 +29,19 @@ jobs:
       api-key: ${{ secrets.DATAMINER_DEPLOY_KEY }}
       sonarCloudToken: ${{ secrets.SONAR_TOKEN }}
     
-  # Optional 0 or More CD Jobs as needed
-  CD:   
-    if: github.ref_type == 'tag'
-    environment: production
-    name: CD
-    runs-on: ubuntu-latest
-    needs: CI
-    steps:
-       - uses: actions/checkout@v4
+  # # Optional 0 or More CD Jobs as needed
+  # CD:
+  #   if: github.ref_type == 'tag'
+  #   environment: production
+  #   name: CD
+  #   runs-on: ubuntu-latest
+  #   needs: CI
 
-       - name: Find .sln file
-         id: findSlnFile 
-         run: |
-           echo solutionFilePath=$(find . -type f -name '*.sln') >> $GITHUB_OUTPUT
-         shell: bash
+  #   steps:
+  #     - uses: actions/checkout@v4
+        
+  #     - name: Install .NET Tools
+  #       run: dotnet tool install -g Skyline.DataMiner.CICD.Tools.DataMinerDeploy
 
-       - name: Find or create NuGet.config file
-         if: ${{ github.repository_owner }} == 'SkylineCommunications'
-         id: findOrCreateNuGetFile
-         run: |
-           file=$(find . -type f -iname 'nuget.config' | head -n 1)
-           if [[ -n "$file" ]]; then
-             echo "NuGet config file exists: $file"
-             echo NuGetFileName=$(basename $file) >> $GITHUB_OUTPUT
-           else
-             echo "NuGet config does not exist. Creating..."
-             dotnet new nugetconfig --output ${{ github.workspace }}
-             echo NuGetFileName=nuget.config >> $GITHUB_OUTPUT
-           fi
-         shell: bash
-
-       - name: Enable Skyline GitHub NuGet Registry
-         if: ${{ github.repository_owner }} == 'SkylineCommunications'
-         run: dotnet nuget add source "https://nuget.pkg.github.com/SkylineCommunications/index.json" --username USERNAME --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text --configfile ${{ github.workspace }}/${{ steps.findOrCreateNuGetFile.outputs.NuGetFileName }}
-      
-       - name: NuGet restore solution
-         run: dotnet restore "${{ steps.findSlnFile.outputs.solutionFilePath }}"
-
-       - name: Install .NET Tools
-         run: |
-           dotnet tool install -g Skyline.DataMiner.CICD.Tools.Packager
-           dotnet tool install -g Skyline.DataMiner.CICD.Tools.CatalogUpload
-           dotnet tool install -g Skyline.DataMiner.CICD.Tools.DataMinerDeploy
-           
-       - name: Create package name
-         id: packageName
-         run: |
-           tempName="${{ github.repository }} ${{ github.ref_name }}"
-           echo name=${tempName//[\"\/\\<>|:*?]/_} >> $GITHUB_OUTPUT
-         shell: bash
-
-       - name: Create dmapp package (Release)
-         run: dataminer-package-create dmapp "${{ github.workspace }}" --type automation --version ${{ github.ref_name }} --output "${{ github.workspace }}" --name "${{ steps.packageName.outputs.name }}"
-
-       - name: Upload to Catalog
-         id: uploadToCatalog
-         run: echo "id=$(dataminer-catalog-upload --path-to-artifact "${{ github.workspace }}/${{ steps.packageName.outputs.name }}.dmapp" --dm-catalog-token ${{ secrets.DATAMINER_DEPLOY_KEY }})" >> $GITHUB_OUTPUT
+  #     - name: Deploy to DataMiner
+  #       run: dataminer-package-deploy from-catalog --artifact-id "${{ needs.CI.outputs.artifact-id }}" --dm-catalog-token ${{ secrets.DATAMINER_DEPLOY_KEY }}
